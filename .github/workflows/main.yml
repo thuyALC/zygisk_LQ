@@ -1,0 +1,35 @@
+name: Build Zygisk Module
+
+on:
+  workflow_dispatch: # Cho phép bấm nút chạy thủ công
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - 'README.md'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build Module
+        run: |
+          python build.py
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zygisk-module-release
+          path: out/*.zip
