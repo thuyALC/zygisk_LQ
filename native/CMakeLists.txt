@@ -16,6 +16,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS}")
 add_library(${MODULE_NAME} SHARED main.cpp)
 target_link_libraries(${MODULE_NAME} PRIVATE log)
 strip_and_move(${MODULE_NAME})
+
 # Khai báo thư viện ShadowHook động (.so)
 add_library(shadowhook SHARED IMPORTED)
 set_target_properties(shadowhook PROPERTIES
@@ -23,7 +24,7 @@ set_target_properties(shadowhook PROPERTIES
 )
 
 # Thêm đường dẫn chứa file shadowhook.h
-target_include_directories(module PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/shadowhook")
+target_include_directories(${MODULE_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/shadowhook")
 
-# Link ShadowHook vào module zygisk của mày
-target_link_libraries(module PRIVATE shadowhook)
+# Link ShadowHook vào module zygisk
+target_link_libraries(${MODULE_NAME} PRIVATE shadowhook)
