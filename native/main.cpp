@@ -7,12 +7,10 @@
 #include <sys/mman.h>
 #include <android/log.h>
 #include "zygisk.hpp"
+#include "shadowhook.h"
 
 #define LOG_TAG "LQ_Pro_Mod"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-
-#ifdef __aarch64__
-#include "shadowhook.h"
 
 uintptr_t g_il2cpp_base = 0;
 size_t g_il2cpp_size = 0;
@@ -63,26 +61,23 @@ bool (*orig_Enable60FPS)(void* instance);
 bool hook_Enable60FPS(void* instance) { return true; }
 
 void* SuperSafeThread(void*) {
-    LOGI("Module ShadowHook đã kích hoạt. Đợi game nạp thư viện...");
+    LOGI("Module ShadowHook da kich hoat. Doi game nap thu vien...");
     while (g_il2cpp_base == 0) {
         GetLibInfo("libil2cpp.so", g_il2cpp_base, g_il2cpp_size);
         usleep(500000);
     }
-    LOGI("Phát hiện libil2cpp.so tại: %p [Size: %zu]", (void*)g_il2cpp_base, g_il2cpp_size);
+    LOGI("Phat hien libil2cpp.so tai: %p [Size: %zu]", (void*)g_il2cpp_base, g_il2cpp_size);
     g_clean_backup = malloc(g_il2cpp_size);
     if (g_clean_backup) {
         memcpy(g_clean_backup, (void*)g_il2cpp_base, g_il2cpp_size);
-        LOGI("Đã tạo phân vùng bộ nhớ sạch!");
+        LOGI("Da tao phan vung bo nho sach!");
     }
-    void* bypass_hook = shadowhook_hook_func_addr(
-        (void*)pread64, (void*)hook_pread64, (void**)&orig_pread64
-    );
-    if (bypass_hook) LOGI("Bypass Memory Scan OK!");
+    shadowhook_hook_func_addr((void*)pread64, (void*)hook_pread64, (void**)&orig_pread64);
     shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x8D61178), (void*)hook_GetCameraHeightRateValue, (void**)&orig_GetCameraHeightRateValue);
     shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x6BD7BA0), (void*)hook_ShowUlti1, (void**)&orig_ShowUlti1);
     shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x85A87AC), (void*)hook_ShowUlti2, (void**)&orig_ShowUlti2);
     shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x7372080), (void*)hook_Enable60FPS, (void**)&orig_Enable60FPS);
-    LOGI("Toàn bộ tính năng đã Hook xong!");
+    LOGI("Toan bo tinh nang da Hook xong!");
     return nullptr;
 }
 
@@ -100,4 +95,13 @@ public:
 
     void preAppSpecialize(zygisk::AppSpecializeArgs* args) override {
         const char* process = this->env->GetStringUTFChars(args->nice_name, nullptr);
-        if (process && strcmp(process, "com.tren.ne") == 
+        if (process && strcmp(process, "com.garena.game.kgvn") == 0) {
+            LOGI("Muc tieu: LQ VN. Khoi dong...");
+            pthread_t t;
+            pthread_create(&t, nullptr, SuperSafeThread, nullptr);
+        }
+        this->env->ReleaseStringUTFChars(args->nice_name, process);
+    }
+};
+
+REGISTER_ZYGISK_MODULE(MyZygiskModule)
