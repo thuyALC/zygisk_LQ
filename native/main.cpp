@@ -7,17 +7,16 @@
 #include <sys/mman.h>
 #include <android/log.h>
 #include "zygisk.hpp"
-#include "shadowhook.h"
-// Thêm vào đầu main.cpp, sau các #include
-#ifndef __aarch64__
-// Stub cho armeabi-v7a - không làm gì cả
-class MyZygiskModule : public zygisk::ModuleBase {};
-REGISTER_ZYGISK_MODULE(MyZygiskModule)
-#else
-// ... toàn bộ code gốc của bạn ...
-#endif
+
 #define LOG_TAG "LQ_Pro_Mod"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+
+// ================================================================
+// CHỈ BUILD TOÀN BỘ LOGIC TRÊN ARM64 — armeabi-v7a dùng stub rỗng
+// ================================================================
+#ifdef __aarch64__
+
+#include "shadowhook.h"
 
 uintptr_t g_il2cpp_base = 0;
 size_t g_il2cpp_size = 0;
@@ -57,73 +56,21 @@ ssize_t hook_pread64(int fd, void* buf, size_t count, off64_t offset) {
 }
 
 // ==================== HOOK LOGIC GAME ====================
+// 1. Hack Cam
 float (*orig_GetCameraHeightRateValue)(void* instance);
 float hook_GetCameraHeightRateValue(void* instance) { return 2.5f; }
 
+// 2. Hiện Ulti dòng 1
 bool (*orig_ShowUlti1)(void* instance);
 bool hook_ShowUlti1(void* instance) { return true; }
 
+// 3. Hiện Ulti dòng 2
 bool (*orig_ShowUlti2)(void* instance);
 bool hook_ShowUlti2(void* instance) { return true; }
 
+// 4. 60FPS
 bool (*orig_Enable60FPS)(void* instance);
 bool hook_Enable60FPS(void* instance) { return true; }
 
-// ==================== LUỒNG KHỞI CHẠY CHÍNH ====================
-void* SuperSafeThread(void*) {
-    LOGI("Module ShadowHook đã kích hoạt. Đợi game nạp thư viện...");
-    while (g_il2cpp_base == 0) {
-        GetLibInfo("libil2cpp.so", g_il2cpp_base, g_il2cpp_size);
-        usleep(500000);
-    }
-    LOGI("Phát hiện libil2cpp.so tại: %p [Size: %zu]", (void*)g_il2cpp_base, g_il2cpp_size);
-
-    g_clean_backup = malloc(g_il2cpp_size);
-    if (g_clean_backup) {
-        memcpy(g_clean_backup, (void*)g_il2cpp_base, g_il2cpp_size);
-        LOGI("Đã tạo phân vùng bộ nhớ sạch phục vụ ẩn danh!");
-    }
-
-    void* pread64_addr = (void*)pread64;
-    void* bypass_hook = shadowhook_hook_func_addr(
-        pread64_addr, (void*)hook_pread64, (void**)&orig_pread64
-    );
-    if (bypass_hook) LOGI("✅ Đã bật tường lửa Bypass Memory Scan thành công!");
-
-    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x8D61178), (void*)hook_GetCameraHeightRateValue, (void**)&orig_GetCameraHeightRateValue);
-    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x6BD7BA0), (void*)hook_ShowUlti1, (void**)&orig_ShowUlti1);
-    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x85A87AC), (void*)hook_ShowUlti2, (void**)&orig_ShowUlti2);
-    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x7372080), (void*)hook_Enable60FPS, (void**)&orig_Enable60FPS);
-
-    LOGI("✅ Toàn bộ tính năng đã được Hook ẩn danh bằng ShadowHook!");
-    return nullptr;
-}
-
-// ==================== ZYGISK MODULE ====================
-class MyZygiskModule : public zygisk::ModuleBase {
-public:
-    // ✅ SỬA LỖI 1 & 2: Khai báo member api và env
-    zygisk::Api* api;
-    JNIEnv* env;
-
-    void onLoad(zygisk::Api* api, JNIEnv* env) override {
-        this->api = api;
-        this->env = env;
-        dlopen("libshadowhook.so", RTLD_NOW);
-        // ✅ SỬA LỖI 3: shadowhook_init cần 2 tham số
-        shadowhook_init(SHADOWHOOK_MODE_UNIQUE, false);
-    }
-
-    void preAppSpecialize(zygisk::AppSpecializeArgs* args) override {
-        // ✅ SỬA LỖI 4 & 5: Dùng this->env thay vì env (biến không tồn tại ở scope này)
-        const char* process = this->env->GetStringUTFChars(args->nice_name, nullptr);
-        if (process && strcmp(process, "com.garena.game.kgvn") == 0) {
-            LOGI("Mục tiêu: Liên Quân Mobile VN. Khởi động luồng siêu bảo mật...");
-            pthread_t t;
-            pthread_create(&t, nullptr, SuperSafeThread, nullptr);
-        }
-        this->env->ReleaseStringUTFChars(args->nice_name, process);
-    }
-};
-
-REGISTER_ZYGISK_MODULE(MyZygiskModule)
+// ==================== LUỒNG CHÍNH ====================
+void* S
