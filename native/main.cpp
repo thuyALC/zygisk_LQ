@@ -93,16 +93,18 @@ void* SuperSafeThread(void*) {
     }
 
     void* pread64_addr = (void*)pread64;
-    shadowhook_hook_func_info_t* bypass_hook = shadowhook_hook_to_redirect(
+    
+    // Đã sửa hàm hook và kiểu dữ liệu chuẩn của ShadowHook
+    void* bypass_hook = shadowhook_hook_func_addr(
         pread64_addr, (void*)hook_pread64, (void**)&orig_pread64
     );
     if (bypass_hook) LOGI("✅ Đã bật tường lửa Bypass Memory Scan thành công!");
 
-    // Tiến hành Hook các tính năng (Đã sửa triệt để lỗi lặp biến ở đây)
-    shadowhook_hook_to_redirect((void*)(g_il2cpp_base + 0x8D61178), (void*)hook_GetCameraHeightRateValue, (void**)&orig_GetCameraHeightRateValue);
-    shadowhook_hook_to_redirect((void*)(g_il2cpp_base + 0x6BD7BA0), (void*)hook_ShowUlti1, (void**)&orig_ShowUlti1);
-    shadowhook_hook_to_redirect((void*)(g_il2cpp_base + 0x85A87AC), (void*)hook_ShowUlti2, (void**)&orig_ShowUlti2);
-    shadowhook_hook_to_redirect((void*)(g_il2cpp_base + 0x7372080), (void*)hook_Enable60FPS, (void**)&orig_Enable60FPS);
+    // Tiến hành Hook các tính năng (Sử dụng shadowhook_hook_func_addr)
+    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x8D61178), (void*)hook_GetCameraHeightRateValue, (void**)&orig_GetCameraHeightRateValue);
+    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x6BD7BA0), (void*)hook_ShowUlti1, (void**)&orig_ShowUlti1);
+    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x85A87AC), (void*)hook_ShowUlti2, (void**)&orig_ShowUlti2);
+    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x7372080), (void*)hook_Enable60FPS, (void**)&orig_Enable60FPS);
 
     LOGI("✅ Toàn bộ tính năng đã được Hook ẩn danh bằng ShadowHook!");
     return nullptr;
