@@ -65,9 +65,11 @@ mkdir "$MODPATH/zygisk"
 
 if [ "$ARCH" = "x86" ] || [ "$ARCH" = "x64" ]; then
   if [ "$HAS32BIT" = true ]; then
-    ui_print "- Extracting x86 libraries"
-    extract "$ZIPFILE" "lib/x86/lib$SONAME.so" "$MODPATH/zygisk/" true
-    mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/x86.so"
+    if unzip -l "$ZIPFILE" "lib/x86/lib$SONAME.so" >/dev/null 2>&1; then
+      ui_print "- Extracting x86 libraries"
+      extract "$ZIPFILE" "lib/x86/lib$SONAME.so" "$MODPATH/zygisk/" true
+      mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/x86.so"
+    fi
   fi
 
   ui_print "- Extracting x64 libraries"
@@ -75,8 +77,12 @@ if [ "$ARCH" = "x86" ] || [ "$ARCH" = "x64" ]; then
   mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/x86_64.so"
 else
   if [ "$HAS32BIT" = true ]; then
-    extract "$ZIPFILE" "lib/armeabi-v7a/lib$SONAME.so" "$MODPATH/zygisk" true
-    mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/armeabi-v7a.so"
+    if unzip -l "$ZIPFILE" "lib/armeabi-v7a/lib$SONAME.so" >/dev/null 2>&1; then
+      extract "$ZIPFILE" "lib/armeabi-v7a/lib$SONAME.so" "$MODPATH/zygisk" true
+      mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/armeabi-v7a.so"
+    else
+      ui_print "- No armeabi-v7a library (arm64-only module)"
+    fi
   fi
 
   ui_print "- Extracting arm64 libraries"
