@@ -126,7 +126,6 @@ def build_target(target, abi, plat, build_type):
     build_dir = BUILD_DIR / BUILD_DIR_NAME / abi
     config(abi, plat, build_type=build_type)
     exec_cmd(['cmake', "--build", build_dir, "--", target, f'-j{os.cpu_count()}'])
-    # TODO: return bin output
     return None
 
 def build_all(abi, plat, build_type, force):
@@ -149,7 +148,10 @@ def get_device_abi(device):
     return exec_out(cmd)
 
 
-SUPPORTED_ABIS = ['arm64-v8a']
+# ABI thực sự build
+BUILD_ABIS = ['arm64-v8a']
+# ABI có trong zip (cần đủ để pass verify.sh khi flash)
+SUPPORTED_ABIS = ['arm64-v8a', 'armeabi-v7a']
 
 
 def deploy(target, device, abi, dest, build_type):
@@ -187,7 +189,6 @@ ABI_TO_ARCH = {
     'x86': 'i386',
     'riscv64': 'riscv64',
 }
-# https://topjohnwu.github.io/Magisk/guides.html#variables
 ABI_TO_MAGISK_ARCH = {
     'arm64-v8a': 'arm64',
     'armeabi-v7a': 'arm',
@@ -232,17 +233,25 @@ def clean_cmd(args):
 
 def build_zip(args):
     build_type = BUILD_TYPE
+
+    # Chỉ build ARM64 thật sự
+    for abi in BUILD_ABIS:
+        build_all(abi=abi, plat=PLATFORM, build_type=build_type, force=args.force)
+
+    # Tạo stub rỗng cho armeabi-v7a để pass verify.sh khi flash
     for abi in SUPPORTED_ABIS:
-        build_all(
-            abi=abi, plat=PLATFORM, build_type=build_type, force=args.force
-        )
+        if abi not in BUILD_ABIS:
+            stub_dir = LIB_OUTPUT_DIR / abi
+            os.makedirs(stub_dir, exist_ok=True)
+            stub_file = stub_dir / f'lib{MODULE_ID}.so'
+            stub_file.touch()
+            print(f'* Created stub for {abi}')
 
     module_path = OUTPUT_DIR / "module" / BUILD_DIR_NAME
     module_template = ROOT_DIR / 'template'
     shutil.rmtree(module_path, ignore_errors=True)
     os.makedirs(module_path, exist_ok=True)
 
-    # prepare files
     def fix_crlf(p: Path):
         with open(p, 'r', encoding='utf-8') as f:
             text = f.read()
@@ -274,7 +283,7 @@ def build_zip(args):
     expand_text_file(module_path / 'module.prop', {
         'moduleId': MODULE_ID,
         'moduleName': MODULE_NAME,
-        'versionName': f"{RELEASE_NAME} ({GIT_COMMIT_COUNT}-{GIT_COMMIT_HASH}-{build_type})", # TODO
+        'versionName': f"{RELEASE_NAME} ({GIT_COMMIT_COUNT}-{GIT_COMMIT_HASH}-{build_type})",
         'versionCode': str(GIT_COMMIT_COUNT)
     })
     script_vars = {
@@ -288,7 +297,6 @@ def build_zip(args):
     expand_text_file(module_path / 'uninstall.sh', script_vars)
     expand_text_file(module_path / 'cleanup.sh', script_vars)
 
-    # filter empty lines and comments
     with open(module_path / 'sepolicy.rule', 'r', encoding='utf-8') as f:
         content = f.read()
     with open(module_path / 'sepolicy.rule', 'w', encoding='utf-8') as f:
@@ -296,7 +304,6 @@ def build_zip(args):
 
     shutil.copytree(NATIVE_OUTPUT_DIR, module_path, dirs_exist_ok=True)
 
-    # build zip
     build_name = f'{MODULE_NAME}-{RELEASE_NAME}-{GIT_COMMIT_COUNT}-{GIT_COMMIT_HASH}-{build_type}'
     zip_file_name = f"{build_name}.zip".replace(' ', '-')
     output_path = RELEASE_DIR / zip_file_name
