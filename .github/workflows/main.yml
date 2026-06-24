@@ -24,9 +24,14 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
       - name: Build Module
         run: |
-          python build.py -t release zip
+          python build.py zip
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
