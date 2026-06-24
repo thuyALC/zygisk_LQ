@@ -10,21 +10,23 @@ macro(strip_and_move NAME)
 endmacro()
 
 set(CXX_FLAGS "${CXX_FLAGS} -fno-exceptions -fno-rtti -fvisibility=hidden -fvisibility-inlines-hidden")
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS}")
 
 add_library(${MODULE_NAME} SHARED main.cpp)
 target_link_libraries(${MODULE_NAME} PRIVATE log)
 strip_and_move(${MODULE_NAME})
 
-# Khai báo thư viện ShadowHook động (.so)
-add_library(shadowhook SHARED IMPORTED)
-set_target_properties(shadowhook PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/shadowhook/libshadowhook.so"
-)
+# Chỉ link ShadowHook khi build arm64-v8a
+if(${ANDROID_ABI} STREQUAL "arm64-v8a")
+    # Khai báo thư viện ShadowHook động (.so)
+    add_library(shadowhook SHARED IMPORTED)
+    set_target_properties(shadowhook PROPERTIES
+        IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/shadowhook/libshadowhook.so"
+    )
 
-# Thêm đường dẫn chứa file shadowhook.h
-target_include_directories(${MODULE_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/shadowhook")
+    # Thêm đường dẫn chứa file shadowhook.h
+    target_include_directories(${MODULE_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/shadowhook")
 
-# Link ShadowHook vào module zygisk
-target_link_libraries(${MODULE_NAME} PRIVATE shadowhook)
+    # Link ShadowHook vào module zygisk
+    target_link_libraries(${MODULE_NAME} PRIVATE shadowhook)
+endif()
