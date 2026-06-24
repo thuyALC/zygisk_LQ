@@ -8,7 +8,14 @@
 #include <android/log.h>
 #include "zygisk.hpp"
 #include "shadowhook.h"
-
+// Thêm vào đầu main.cpp, sau các #include
+#ifndef __aarch64__
+// Stub cho armeabi-v7a - không làm gì cả
+class MyZygiskModule : public zygisk::ModuleBase {};
+REGISTER_ZYGISK_MODULE(MyZygiskModule)
+#else
+// ... toàn bộ code gốc của bạn ...
+#endif
 #define LOG_TAG "LQ_Pro_Mod"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
