@@ -11,11 +11,7 @@
 #define LOG_TAG "LQ_Pro_Mod"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
-// ================================================================
-// CHỈ BUILD TOÀN BỘ LOGIC TRÊN ARM64 — armeabi-v7a dùng stub rỗng
-// ================================================================
 #ifdef __aarch64__
-
 #include "shadowhook.h"
 
 uintptr_t g_il2cpp_base = 0;
@@ -41,7 +37,6 @@ bool GetLibInfo(const char* libName, uintptr_t& base, size_t& size) {
     return false;
 }
 
-// ==================== BYPASS MEMORY SCAN ====================
 ssize_t (*orig_pread64)(int fd, void* buf, size_t count, off64_t offset);
 ssize_t hook_pread64(int fd, void* buf, size_t count, off64_t offset) {
     ssize_t result = orig_pread64(fd, buf, count, offset);
@@ -55,22 +50,54 @@ ssize_t hook_pread64(int fd, void* buf, size_t count, off64_t offset) {
     return result;
 }
 
-// ==================== HOOK LOGIC GAME ====================
-// 1. Hack Cam
 float (*orig_GetCameraHeightRateValue)(void* instance);
 float hook_GetCameraHeightRateValue(void* instance) { return 2.5f; }
 
-// 2. Hiện Ulti dòng 1
 bool (*orig_ShowUlti1)(void* instance);
 bool hook_ShowUlti1(void* instance) { return true; }
 
-// 3. Hiện Ulti dòng 2
 bool (*orig_ShowUlti2)(void* instance);
 bool hook_ShowUlti2(void* instance) { return true; }
 
-// 4. 60FPS
 bool (*orig_Enable60FPS)(void* instance);
 bool hook_Enable60FPS(void* instance) { return true; }
 
-// ==================== LUỒNG CHÍNH ====================
-void* S
+void* SuperSafeThread(void*) {
+    LOGI("Module ShadowHook đã kích hoạt. Đợi game nạp thư viện...");
+    while (g_il2cpp_base == 0) {
+        GetLibInfo("libil2cpp.so", g_il2cpp_base, g_il2cpp_size);
+        usleep(500000);
+    }
+    LOGI("Phát hiện libil2cpp.so tại: %p [Size: %zu]", (void*)g_il2cpp_base, g_il2cpp_size);
+    g_clean_backup = malloc(g_il2cpp_size);
+    if (g_clean_backup) {
+        memcpy(g_clean_backup, (void*)g_il2cpp_base, g_il2cpp_size);
+        LOGI("Đã tạo phân vùng bộ nhớ sạch!");
+    }
+    void* bypass_hook = shadowhook_hook_func_addr(
+        (void*)pread64, (void*)hook_pread64, (void**)&orig_pread64
+    );
+    if (bypass_hook) LOGI("Bypass Memory Scan OK!");
+    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x8D61178), (void*)hook_GetCameraHeightRateValue, (void**)&orig_GetCameraHeightRateValue);
+    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x6BD7BA0), (void*)hook_ShowUlti1, (void**)&orig_ShowUlti1);
+    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x85A87AC), (void*)hook_ShowUlti2, (void**)&orig_ShowUlti2);
+    shadowhook_hook_func_addr((void*)(g_il2cpp_base + 0x7372080), (void*)hook_Enable60FPS, (void**)&orig_Enable60FPS);
+    LOGI("Toàn bộ tính năng đã Hook xong!");
+    return nullptr;
+}
+
+class MyZygiskModule : public zygisk::ModuleBase {
+public:
+    zygisk::Api* api;
+    JNIEnv* env;
+
+    void onLoad(zygisk::Api* api, JNIEnv* env) override {
+        this->api = api;
+        this->env = env;
+        dlopen("libshadowhook.so", RTLD_NOW);
+        shadowhook_init(SHADOWHOOK_MODE_UNIQUE, false);
+    }
+
+    void preAppSpecialize(zygisk::AppSpecializeArgs* args) override {
+        const char* process = this->env->GetStringUTFChars(args->nice_name, nullptr);
+        if (process && strcmp(process, "com.tren.ne") == 
